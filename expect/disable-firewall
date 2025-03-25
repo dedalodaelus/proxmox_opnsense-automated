@@ -1,0 +1,94 @@
+#!/usr/bin/expect -f
+
+set timeout 30
+
+# Default values
+set host "192.168.60.106"
+set user "root"
+set password "opnsense"
+set verbose 0
+
+# Parse command-line arguments
+set argcnt [llength $argv]
+for {set i 0} {$i < $argcnt} {incr i} {
+    switch -- [lindex $argv $i] {
+        "--host" {
+            incr i
+            set host [lindex $argv $i]
+        }
+        "--user" {
+            incr i
+            set user [lindex $argv $i]
+        }
+        "--password" {
+            incr i
+            set password [lindex $argv $i]
+        }
+        "--verbose" {
+            set verbose 1
+        }
+        default {
+            # Unknown argument - could warn or ignore
+        }
+    }
+}
+
+# Set verbosity
+if {$verbose == 1} {
+    log_user 1
+    puts "Verbose mode ON. Connecting to $host with user $user."
+} else {
+    log_user 0
+    puts "Verbose mode OFF. Connecting to $host with user $user."
+}
+
+spawn ssh $user@$host
+
+expect {
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+    "assword:" {
+        send "$password\r"
+    }
+}
+
+expect "Enter an option:"
+puts "Connected. Selecting shell (option 8)..."
+send "8\r"
+
+expect "#"
+puts "In shell. Disabling firewall..."
+send "pfctl -d\r"
+
+expect {
+    -re "pf disabled" {
+        puts "Firewall has been disabled."
+    }
+    -re "pfctl: pf not enabled" {
+        puts "Firewall was already disabled."
+    }
+    timeout {
+        puts "Warning: no confirmation message received after pfctl -d."
+    }
+}
+
+expect "#"
+puts "Exiting shell..."
+send "exit\r"
+
+expect "Enter an option:"
+puts "Back at menu. Logging out (option 0)..."
+send "0\r"
+
+expect {
+    eof {
+        puts "Session closed by remote host. Done."
+        exit 0
+    }
+    timeout {
+        puts "Timeout waiting for session close."
+        exit 1
+    }
+}
