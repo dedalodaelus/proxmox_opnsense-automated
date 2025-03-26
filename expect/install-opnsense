@@ -1,0 +1,138 @@
+#!/usr/bin/expect -f
+
+set timeout 30
+
+# Default values
+set host "192.168.60.106"
+set user "installer"
+set password "opnsense"
+set verbose 0
+
+# Parse command-line arguments
+set argcnt [llength $argv]
+for {set i 0} {$i < $argcnt} {incr i} {
+    switch -- [lindex $argv $i] {
+        "--host" {
+            incr i
+            set host [lindex $argv $i]
+        }
+        "--user" {
+            incr i
+            set user [lindex $argv $i]
+        }
+        "--password" {
+            incr i
+            set password [lindex $argv $i]
+        }
+        "--verbose" {
+            set verbose 1
+        }
+        default {
+            # Unknown argument - could warn or ignore
+        }
+    }
+}
+
+# Set verbosity
+if {$verbose == 1} {
+    log_user 1
+    puts "Verbose mode ON. Connecting to $host with user $user."
+} else {
+    log_user 0
+    puts "Verbose mode OFF. Connecting to $host with user $user."
+}
+
+spawn ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $user@$host
+
+expect {
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+    "assword:" {
+        send "$password\r"
+    }
+}
+
+expect {
+    -re "The system console driver for FreeBSD defaults to standard" {
+        puts "Keyboard selection prompt detected. Continuing with default keymap..."
+        send "\r"
+        exp_continue
+    }
+    -re "Choose one of the following tasks to perform" {
+        puts "Installation task selection prompt detected. Choosing 'Install (ZFS) ZFS GPT/UEFI Hybrid'..."
+        send "\r"
+        exp_continue
+    }
+    -re "The installer detected only 2048MB of RAM" {
+        puts "ZFS configuration warning detected. Proceeding anyway..."
+        send "\r"
+        exp_continue
+    }
+    -re "Select Virtual Device type" {
+        puts "ZFS virtual device type selection prompt detected. Choosing 'stripe'..."
+        send "\r"
+        exp_continue
+    }
+    -re "Please select one or more disks to create a zpool" {
+        puts "ZFS disk selection prompt detected. Selecting disk 'da0'..."
+        send " \r"
+        sleep 1
+        send "\r"
+        exp_continue
+    }
+    -re "These disks are smaller than the amount of requested swap" {
+        puts "Disk size error prompt detected. Confirming with 'OK'..."
+        send "\r"
+        exp_continue
+    }
+    -re "Last Chance" {
+        # puts "Final confirmation prompt detected. Pressing left key and confirming with 'YES'..."
+        send "y"
+        exp_continue
+    }
+    -re "Overall Progress" {
+        puts "Installation progress detected. Waiting for it to complete..."
+        exp_continue
+    }
+    -re "Setup of your OPNsense system is nearly" {
+        puts "Final configuration prompt detected. Selecting 'Complete Install'..."
+        send "\033\[B"
+        send "\r"
+        exp_continue
+    }
+    -re "The system may boot back into" {
+        puts "Installation complete prompt detected. Selecting 'Reboot now'..."
+        send "\033\[B"
+        send "\r"
+        exp_continue
+    }
+    timeout {
+        puts "Warning: no confirmation message received after sending command."
+    }
+}
+
+expect "#"
+puts "Exiting shell..."
+send "exit\r"
+
+expect "Enter an option:"
+puts "Back at menu. Logging out (option 0)..."
+send "0\r"
+
+expect {
+    eof {
+        puts "Session closed by remote host. Done."
+        exit 0
+    }
+    timeout {
+        puts "Timeout waiting for session close."
+        exit 1
+    }
+    -re "Powering down in 5 seconds" {
+        puts "Installation finished successfully. Powering down..."
+        sleep 5
+        exit 0
+    }
+}
