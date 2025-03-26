@@ -58,6 +58,14 @@ expect {
     "assword:" {
         send "$password\r"
     }
+    timeout {
+        puts "Error: SSH connection timed out."
+        exit 1
+    }
+    eof {
+        puts "Error: SSH connection failed."
+        exit 1
+    }
 }
 
 expect {
@@ -119,14 +127,6 @@ expect {
         puts "Warning: no confirmation message received after sending command."
     }
 }
-
-expect "#"
-puts "Exiting shell..."
-send "exit\r"
-
-expect "Enter an option:"
-puts "Back at menu. Logging out (option 0)..."
-send "0\r"
 
 expect {
     eof {
