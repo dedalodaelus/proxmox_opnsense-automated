@@ -42,7 +42,7 @@ if {$verbose == 1} {
     puts "Verbose mode OFF. Connecting to $host with user $user."
 }
 
-spawn ssh $user@$host
+spawn ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $user@$host
 
 expect {
     "Are you sure you want to continue connecting" {
@@ -73,6 +73,18 @@ expect {
         puts "Warning: no confirmation message received after pfctl -d."
     }
 }
+
+expect "#"
+puts "Applying sed command to modify opnsense-zfs..."
+send "sed -i '' -e 's/defaultno=default-no//g' -e 's/defaultno=defaultno//g' /usr/libexec/bsdinstall/opnsense-zfs\r"
+
+expect "#"
+puts "Commenting out lines starting with 'finalconfig' in /usr/libexec/bsdinstall/opnsense..."
+send "sed -i '' 's/^\\(finalconfig\\)$/# \\1/' /usr/libexec/bsdinstall/opnsense\r"
+
+expect "#"
+puts "Changing lines starting with 'powerconfig' to 'exit 42' /usr/libexec/bsdinstall/opnsense..."
+send "sed -i '' 's/^powerconfig$/exit 42/' /usr/libexec/bsdinstall/opnsense\r"
 
 expect "#"
 puts "Exiting shell..."
