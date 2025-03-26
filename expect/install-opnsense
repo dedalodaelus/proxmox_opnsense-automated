@@ -1,12 +1,14 @@
 #!/usr/bin/expect -f
 
-set timeout 30
-
 # Default values
 set host "192.168.60.106"
 set user "installer"
 set password "opnsense"
 set verbose 0
+set install_timeout 300
+set default_timeout 30
+
+set timeout $default_timeout
 
 # Parse command-line arguments
 set argcnt [llength $argv]
@@ -26,6 +28,10 @@ for {set i 0} {$i < $argcnt} {incr i} {
         }
         "--verbose" {
             set verbose 1
+        }
+        "--install-timeout" {
+            incr i
+            set install_timeout [lindex $argv $i]
         }
         default {
             # Unknown argument - could warn or ignore
@@ -94,6 +100,7 @@ expect {
     }
     -re "Overall Progress" {
         puts "Installation progress detected. Waiting for it to complete..."
+        set timeout $install_timeout
         exp_continue
     }
     -re "Setup of your OPNsense system is nearly" {
