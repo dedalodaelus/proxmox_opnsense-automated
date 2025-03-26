@@ -103,4 +103,9 @@ expect {
         puts "Timeout waiting for session close."
         exit 1
     }
+    "The installation finished successfully. Powering down in 5 seconds" {
+        puts "Installation finished successfully. Powering down."
+        sleep 5
+        exit 0
+    }
 }
