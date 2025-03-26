@@ -79,8 +79,9 @@ expect {
         send "\r"
         exp_continue
     }
-    -re "The installer detected only 2048MB of RAM" {
-        puts "ZFS configuration warning detected. Proceeding anyway..."
+    -re "The installer detected only \[0-9\]+MB of RAM" {
+        regexp {The installer detected only ([0-9]+)MB of RAM} $expect_out(buffer) match ram
+        puts "ZFS configuration warning detected. Detected RAM: $ram MB. Proceeding anyway..."
         send "\r"
         exp_continue
     }
@@ -123,23 +124,23 @@ expect {
         send "\r"
         exp_continue
     }
-    timeout {
-        puts "Warning: no confirmation message received after sending command."
-    }
-}
-
-expect {
-    eof {
-        puts "Session closed by remote host. Done."
-        exit 0
-    }
-    timeout {
-        puts "Timeout waiting for session close."
-        exit 1
-    }
+    # TODO: this doesn't work, it wont halt the machine
     -re "Powering down in 5 seconds" {
         puts "Installation finished successfully. Powering down..."
         sleep 5
         exit 0
     }
+    timeout {
+        puts "Warning: no confirmation message received after sending command."
+    }
 }
+eof {
+    puts "Session closed by remote host. Done."
+    exit 0
+}
+timeout {
+    puts "Timeout waiting for session close."
+    exit 1
+}
+
+exit 0
